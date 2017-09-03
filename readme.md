@@ -30,6 +30,12 @@ queue.enqueue(new MyCommand())
 queue.enqueue(new MyCommand())
 queue.enqueue(new MyCommand())
 
+queue.on('enqueue', (command, queue) => {})
+queue.on('before execute', (command, queue) => {})
+queue.on('after execute', (command, queue) => {})
+queue.on('before undo', (command, queue) => {})
+queue.on('after undo', (command, queue) => {})
+
 queue.execute((err) => {
     queue.undo((err) => {
     })
