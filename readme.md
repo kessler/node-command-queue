@@ -6,22 +6,34 @@
 
 ## example
 
-`npm i command-queue`
+`npm install --save @kessler/command-queue`
 
 ```js
-const commandQueue = require('command-queue')
-```
+const { CommandQueue, Command } = require('@kessler/command-queue')
 
-## api
+class MyCommand extends Command {
+    constructor() {
+    }
 
-### `main(arg[,opts])`
+    execute(callback) {
+        doSomething(callback)
+    }
 
-## install
+    undo(callback) {
+        undoSomething(callback)
+    }
+}
 
-With [npm](https://npmjs.org) do:
+let queue = new CommandQueue()
 
-```
-npm install command-queue
+queue.enqueue(new MyCommand())
+queue.enqueue(new MyCommand())
+queue.enqueue(new MyCommand())
+
+queue.execute((err) => {
+    queue.undo((err) => {
+    })
+})
 ```
 
 ## license
