@@ -15,12 +15,12 @@ class MyCommand extends Command {
     constructor() {
     }
 
-    execute(callback) {
-        doSomething(callback)
+    async execute() {
+        await doSomething()
     }
 
-    undo(callback) {
-        undoSomething(callback)
+    async undo() {
+        await undoSomething()
     }
 }
 
@@ -36,10 +36,10 @@ queue.on('after execute', (command, queue) => {})
 queue.on('before undo', (command, queue) => {})
 queue.on('after undo', (command, queue) => {})
 
-queue.execute((err) => {
-    queue.undo((err) => {
-    })
-})
+await queue.execute(2) // execute 2
+await queue.execute() // execute the rest
+await queue.undo(1) // undo 1
+await queue.undo() // undo the rest
 ```
 
 ## license

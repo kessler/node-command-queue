@@ -1,229 +1,224 @@
+const test = require('ava')
 const { CommandQueue, Command } = require('./index')
-const { expect } = require('chai')
 
-describe('CommandQueue', () => {
-	let queue, executionOrder, undoOrder
-
-	it('exposes the size of the queue via the "queueLength" property', () => {
-		expect(queue.queueLength).to.equal(3)
-	})
-
-	it('executes queue commands that were pushed to the queue in a FIFO order', (done) => {
-		queue.execute((err) => {
-			if (err) return done(err)
-			expect(executionOrder).to.deep.equal([0, 1, 2])
-			done()
-		})
-	})
-
-	it('calling execute when no commands where queued has no effect', (done) => {
-		queue = new CommandQueue()
-
-		queue.execute((err) => {
-			if (err) return done(err)
-			expect(executionOrder).to.deep.equal([])
-			done()
-		})
-	})
-
-	it('execution halts if one of the commands has an execution error', (done) => {
-		queue = new CommandQueue()
-
-		let expectedError = new Error()
-
-		queue.enqueue(new FooCommand(0))
-		queue.enqueue(new FooCommand(1, expectedError))
-		queue.enqueue(new FooCommand(2))
-
-		queue.execute((err) => {
-			if (!err) {
-				return done(new Error('expected an error from execute() call'))
-			}
-
-			expect(err).to.eql(expectedError)
-			expect(executionOrder).to.deep.equal([0])
-			done()
-		})
-	})
-
-	it('before execution of a command an event is emitted', (done) => {
-		let emitted = []
-
-		queue.on('before execute', (command) => {
-			expect(command.executeCalled).to.be.false
-			emitted.push(command.index)
-		})
-
-		queue.execute((err) => {
-			if (err) return done(err)
-			expect(emitted).to.deep.equal([0, 1, 2])
-			done()
-		})
-	})
-
-	it('after an execution of a command an event is emitted', (done) => {
-		let emitted = []
-
-		queue.on('after execute', (command) => {
-			emitted.push(command.index)
-		})
-
-		queue.execute((err) => {
-			if (err) return done(err)
-			expect(emitted).to.deep.equal([0, 1, 2])
-			done()
-		})
-	})
-
-	it('exposes the size of the history queue via the "historyLength" property', (done) => {
-		expect(queue.historyLength).to.equal(0)
-		queue.execute((err) => {
-			if (err) return done(err)
-			expect(queue.historyLength).to.equal(3)
-			done()
-		})
-	})
-
-	it('undo all the executed commands in the reverse order they were executed', (done) => {
-		queue.execute((err) => {
-			if (err) return done(err)
-
-			queue.undo((err) => {
-				if (err) return done(err)
-				expect(undoOrder).to.deep.equal([2, 1, 0])
-				done()
-			})
-		})
-	})
-
-	it('calling undo when no commands were executed has no effect', (done) => {
-		queue.undo((err) => {
-			if (err) return done(err)
-			expect(undoOrder).to.deep.equal([])
-			done()
-		})
-	})
-
-	it('if a command undo errors, the undo process is halted', (done) => {
-		queue = new CommandQueue()
-
-		let expectedError = new Error()
-
-		queue.enqueue(new FooCommand(0))
-		queue.enqueue(new FooCommand(1, null, expectedError))
-		queue.enqueue(new FooCommand(2))
-
-		queue.execute((err) => {
-			if (err) {
-				return done(err)
-			}
-
-			queue.undo((err) => {
-				if (!err) return done(new Error('expected an error from undo() call'))
-
-				expect(err).to.eql(expectedError)
-				expect(undoOrder).to.deep.equal([2])
-				done()
-			})
-		})
-	})
-
-	it('before undoing a command an event is emitted', (done) => {
-		let emitted = []
-
-		queue.on('before undo', (command) => {
-			expect(command.undoCalled).to.be.false
-			emitted.push(command.index)
-		})
-
-		queue.execute((err) => {
-			if (err) return done(err)
-
-			queue.undo((err) => {
-				if (err) return done(err)
-
-				expect(emitted).to.deep.equal([2, 1, 0])
-				done()
-			})
-		})
-	})
-
-	it('after undoing a command an event is emitted', (done) => {
-		let emitted = []
-
-		queue.on('after undo', (command) => {
-			expect(command.undoCalled).to.be.true
-			emitted.push(command.index)
-		})
-
-		queue.execute((err) => {
-			if (err) return done(err)
-
-			queue.undo((err) => {
-				if (err) return done(err)
-
-				expect(emitted).to.deep.equal([2, 1, 0])
-				done()
-			})
-		})
-	})
-
-	it('calling clear() will remove all queued commands', () => {
-		expect(queue.queueLength).to.equal(3)
-		queue.clear()
-		expect(queue.queueLength).to.equal(0)
-	})
-
-	it('calling clear() will NOT remove commands from the history queue', () => {
-		expect(queue.queueLength).to.equal(3)
-		queue.execute((err) => {
-			if (err) return done(err)
-			expect(queue.historyLength).to.equal(3)
-			queue.clear()
-			expect(queue.historyLength).to.equal(3)
-		})
-	})
-
-	beforeEach(() => {
-		queue = new CommandQueue()
-		executionOrder = []
-		undoOrder = []
-
-		queue.enqueue(new FooCommand(0))
-		queue.enqueue(new FooCommand(1))
-		queue.enqueue(new FooCommand(2))
-	})
-
-	class FooCommand extends Command {
-		constructor(index, executeError, undoError) {
-			super()
-			this.index = index
-			this._executeError = executeError
-			this._undoError = undoError
-			this.executeCalled = false
-			this.undoCalled = false
-		}
-
-		execute(callback) {
-			this.executeCalled = true
-			if (this._executeError) {
-				return callback(this._executeError)
-			}
-
-			executionOrder.push(this.index)
-
-			callback()
-		}
-
-		undo(callback) {
-			this.undoCalled = true
-			if (this._undoError) {
-				return callback(this._undoError)
-			}
-
-			undoOrder.push(this.index)
-
-			callback()
-		}
-	}
+test('exposes the size of the queue via the "queueLength" property', t => {
+	const { queue } = t.context
+	t.is(queue.queueLength, 3)
 })
+
+test('executes ALL the commands pushed to the queue in a FIFO order', async t => {
+	const { queue, executionOrder } = t.context
+	await queue.execute()
+	t.deepEqual(executionOrder, [0, 1, 2])
+})
+
+test('executes SOME the commands pushed to the queue in a FIFO order', async t => {
+	const { queue, executionOrder } = t.context
+	await queue.execute(2)
+	t.deepEqual(executionOrder, [0, 1])
+})
+
+test('execute count greater than the queue length will work', async t => {
+	const { queue, executionOrder } = t.context
+	await queue.execute(232)
+	t.deepEqual(executionOrder, [0, 1, 2])
+})
+
+test('calling execute when no commands where queued has no effect', async t => {
+	const queue = new CommandQueue()
+	queue.on('after execute', () => t.fail('should not happen'))
+	await queue.execute()
+	t.pass()
+})
+
+test('execution halts if one of the commands has an execution error', async t => {
+	const { executionOrder } = t.context
+	const queue = new CommandQueue()
+
+	const expectedError = new Error()
+
+	queue.enqueue(new FooCommand(t.context, 0))
+	queue.enqueue(new FooCommand(t.context, 1, expectedError))
+	queue.enqueue(new FooCommand(t.context, 2))
+
+	await t.throwsAsync(async () => {
+		await queue.execute()
+	}, { is: expectedError })
+
+	t.deepEqual(executionOrder, [0])
+})
+
+test('before execution of a command an event is emitted', async t => {
+	t.plan(4)
+	const { queue } = t.context
+	const emitted = []
+	queue.on('before execute', command => {
+		t.not(command.executeCalled)
+		emitted.push(command.index)
+	})
+
+	await queue.execute()
+	t.deepEqual(emitted, [0, 1, 2])
+})
+
+test('after an execution of a command an event is emitted', async t => {
+	t.plan(4)
+	const { queue } = t.context
+	const emitted = []
+	queue.on('after execute', command => {
+		t.true(command.executeCalled)
+		emitted.push(command.index)
+	})
+
+	await queue.execute()
+	t.deepEqual(emitted, [0, 1, 2])
+})
+
+test('exposes the size of the history queue via the "historyLength" property', async t => {
+	const { queue } = t.context
+	t.is(queue.historyLength, 0)
+	await queue.execute()
+	t.is(queue.historyLength, 3)
+})
+
+test('undo ALL the executed commands in the reverse order they were executed', async t => {
+	const { queue, undoOrder, executionOrder } = t.context
+	await queue.execute()
+	t.deepEqual(executionOrder, [0, 1, 2])
+	await queue.undo()
+	t.deepEqual(undoOrder, executionOrder.reverse())
+})
+
+test('undo SOME of the executed commands in the reverse order they were executed', async t => {
+	const { queue, undoOrder, executionOrder } = t.context
+	await queue.execute()
+	t.deepEqual(executionOrder, [0, 1, 2])
+	await queue.undo(2)
+	t.deepEqual(undoOrder, [2, 1])
+})
+
+test('undo with count greater than the length of the executed commands will work also', async t => {
+	const { queue, undoOrder, executionOrder } = t.context
+	await queue.execute()
+	t.deepEqual(executionOrder, [0, 1, 2])
+	await queue.undo(12)
+	t.deepEqual(undoOrder, executionOrder.reverse())
+})
+
+test('calling undo when no commands were executed has no effect', async t => {
+	const { queue, undoOrder, executionOrder } = t.context
+	t.is(executionOrder.length, 0)
+	t.is(undoOrder.length, 0)
+	await queue.undo()
+	t.is(undoOrder.length, 0)
+})
+
+test('if a command undo errors, the undo process is halted', async t => {
+	const { undoOrder, executionOrder } = t.context
+	const queue = new CommandQueue()
+	const expectedError = new Error()
+
+	queue.enqueue(new FooCommand(t.context, 0))
+	// make undo throw an error, not execute
+	queue.enqueue(new FooCommand(t.context, 1, null, expectedError))
+	queue.enqueue(new FooCommand(t.context, 2))
+
+	await queue.execute()
+	await t.throwsAsync(async () => {
+		await queue.undo()
+	}, { is: expectedError })
+
+	// undo only worked for last command, this stopped due to error on command index 1
+	t.deepEqual(undoOrder, [2])
+})
+
+test('before undoing a command an event is emitted', async t => {
+	t.plan(7)
+	const { queue } = t.context
+	const emitted = []
+	queue.on('before undo', command => {
+		t.not(command.undoCalled)
+		t.true(command.executeCalled)
+		emitted.push(command.index)
+	})
+
+	await queue.execute()
+	await queue.undo()
+	t.deepEqual(emitted, [2, 1, 0])
+})
+
+test('after undoing a command an event is emitted', async t => {
+	t.plan(7)
+	const { queue } = t.context
+	const emitted = []
+	queue.on('after undo', command => {
+		t.true(command.undoCalled)
+		t.true(command.executeCalled)
+		emitted.push(command.index)
+	})
+
+	await queue.execute()
+	await queue.undo()
+	t.deepEqual(emitted, [2, 1, 0])
+})
+
+test('calling clear() will remove all queued commands', t => {
+	const { queue } = t.context
+	t.is(queue.queueLength, 3)
+	queue.clear()
+	t.is(queue.queueLength, 0)
+})
+
+test('calling clear() will NOT remove commands from the history queue', async t => {
+	const { queue } = t.context
+	t.is(queue.queueLength, 3)
+	await queue.execute()
+	t.is(queue.historyLength, 3)
+	queue.clear()
+	t.is(queue.historyLength, 3)
+})
+
+test.beforeEach(t => {
+	t.context.queue = new CommandQueue()
+	t.context.executionOrder = []
+	t.context.undoOrder = []
+
+	t.context.queue.enqueue(new FooCommand(t.context, 0))
+	t.context.queue.enqueue(new FooCommand(t.context, 1))
+	t.context.queue.enqueue(new FooCommand(t.context, 2))
+})
+
+class FooCommand extends Command {
+	constructor({ executionOrder, undoOrder }, index, executeError, undoError) {
+		super()
+		this.index = index
+		this._executeError = executeError
+		this._undoError = undoError
+		this.executeCalled = false
+		this.undoCalled = false
+		this._executionOrder = executionOrder
+		this._undoOrder = undoOrder
+	}
+
+	execute() {
+		this.executeCalled = true
+		if (this._executeError) {
+			throw this._executeError
+		}
+
+		this._executionOrder.push(this.index)
+
+		return Promise.resolve()
+	}
+
+	undo() {
+		this.undoCalled = true
+		if (this._undoError) {
+			throw this._undoError
+		}
+
+		this._undoOrder.push(this.index)
+
+		return Promise.resolve()
+	}
+}

@@ -13,11 +13,11 @@ class Command {
 		}
 	}
 
-	execute(callback) {
+	execute() {
 		throw new Error('must implement')
 	}
 
-	undo(callback) {
+	undo() {
 		throw new Error('must implement')
 	}
 }
@@ -44,41 +44,40 @@ class CommandQueue extends EventEmitter {
 		this._queue = []
 	}
 
-	execute(callback) {
-		if (this._queue.length === 0) {
-			return callback()
+	async execute(count = this._queue.length) {
+		if (count === 0) {
+			return
 		}
 
-		let nextCommand = this._queue.pop()
+		if (this._queue.length === 0) {
+			return
+		}
+
+		const nextCommand = this._queue.pop()
 		this.emit('before execute', nextCommand, this)
 
-		nextCommand.execute((err) => {
-			if (err) {
-				return callback(err)
-			}
+		await nextCommand.execute()
+		this._history.push(nextCommand)
+		this.emit('after execute', nextCommand, this)
 
-			this._history.push(nextCommand)
-			this.emit('after execute', nextCommand, this)
-			this.execute(callback)
-		})
+		return this.execute(--count)
 	}
 
-	undo(callback) {
-		if (this._history.length === 0) {
-			return callback()
+	async undo(count = this._history.length) {
+		if (count === 0) {
+			return
 		}
 
-		let nextCommand = this._history.pop()
+		if (this._history.length === 0) {
+			return
+		}
+
+		const nextCommand = this._history.pop()
 		this.emit('before undo', nextCommand, this)
 
-		nextCommand.undo((err) => {
-			if (err) {
-				return callback(err)
-			}
-			
-			this.emit('after undo', nextCommand, this)
-			this.undo(callback)
-		})
+		await nextCommand.undo()
+		this.emit('after undo', nextCommand, this)
+		return this.undo(--count)
 	}
 
 	get queueLength() {
