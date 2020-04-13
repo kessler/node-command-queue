@@ -15,11 +15,11 @@ class MyCommand extends Command {
     constructor() {
     }
 
-    async execute() {
+    async execute(state) {
         await doSomething()
     }
 
-    async undo() {
+    async undo(state) {
         await undoSomething()
     }
 }
@@ -31,10 +31,10 @@ queue.enqueue(new MyCommand())
 queue.enqueue(new MyCommand())
 
 queue.on('enqueue', (command, queue) => {})
-queue.on('before execute', (command, queue) => {})
-queue.on('after execute', (command, queue) => {})
-queue.on('before undo', (command, queue) => {})
-queue.on('after undo', (command, queue) => {})
+queue.on('before execute', (command, lastResult, queue) => {})
+queue.on('after execute', (command, result, queue) => {})
+queue.on('before undo', (command, lastResult, queue) => {})
+queue.on('after undo', (command, undoResult, queue) => {})
 
 await queue.execute(2) // execute 2
 await queue.execute() // execute the rest

@@ -13,11 +13,23 @@ class Command {
 		}
 	}
 
-	execute() {
+	/**
+	 *    execute's the command, if the previous command returned something
+	 *    it will be provided via state
+	 *    
+	 *    @param  {Variant} state 
+	 *    @return {Variant}
+	 */
+	execute(state) {
 		throw new Error('must implement')
 	}
 
-	undo() {
+	/**
+	 *    Undo the command, the state is the state that was fed to execute()
+	 *    @param  {Variant} state
+	 *    @return {Variant}
+	 */
+	undo(state) {
 		throw new Error('must implement')
 	}
 }
@@ -44,7 +56,7 @@ class CommandQueue extends EventEmitter {
 		this._queue = []
 	}
 
-	async execute(count = this._queue.length) {
+	async execute(count = this._queue.length, lastResult) {
 		if (count === 0) {
 			return
 		}
@@ -54,13 +66,13 @@ class CommandQueue extends EventEmitter {
 		}
 
 		const nextCommand = this._queue.pop()
-		this.emit('before execute', nextCommand, this)
+		this.emit('before execute', nextCommand, lastResult, this)
 
-		await nextCommand.execute()
-		this._history.push(nextCommand)
-		this.emit('after execute', nextCommand, this)
+		const result = await nextCommand.execute(lastResult)
+		this._history.push({ command: nextCommand, lastResult })
+		this.emit('after execute', nextCommand, result, this)
 
-		return this.execute(--count)
+		return this.execute(--count, result)
 	}
 
 	async undo(count = this._history.length) {
@@ -72,11 +84,10 @@ class CommandQueue extends EventEmitter {
 			return
 		}
 
-		const nextCommand = this._history.pop()
-		this.emit('before undo', nextCommand, this)
-
-		await nextCommand.undo()
-		this.emit('after undo', nextCommand, this)
+		const { command, lastResult } = this._history.pop()
+		this.emit('before undo', command, lastResult, this)
+		const undoResult = await command.undo(lastResult)
+		this.emit('after undo', command, undoResult, this)
 		return this.undo(--count)
 	}
 

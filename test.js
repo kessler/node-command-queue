@@ -12,6 +12,29 @@ test('executes ALL the commands pushed to the queue in a FIFO order', async t =>
 	t.deepEqual(executionOrder, [0, 1, 2])
 })
 
+test('the queue will pass a command\'s result to the next one as a parameter', async t => {
+	class MyCommand extends Command {
+		execute(state = 0) {
+			return state + 1
+		}
+	}
+
+	const queue = new CommandQueue()
+
+	queue.enqueue(new MyCommand())
+	queue.enqueue(new MyCommand())
+	queue.enqueue(new MyCommand())
+
+	const results = []
+
+	queue.on('after execute', (command, result) => {
+		results.push(result)
+	})
+
+	await queue.execute()
+	t.deepEqual(results, [1, 2, 3])
+})
+
 test('executes SOME the commands pushed to the queue in a FIFO order', async t => {
 	const { queue, executionOrder } = t.context
 	await queue.execute(2)
@@ -87,6 +110,36 @@ test('undo ALL the executed commands in the reverse order they were executed', a
 	t.deepEqual(executionOrder, [0, 1, 2])
 	await queue.undo()
 	t.deepEqual(undoOrder, executionOrder.reverse())
+})
+
+test('undo will be invoked with the same state used in command\'s execute() invocation', async t => {
+	class MyCommand extends Command {
+		execute(state = 0) {
+			return state + 1
+		}
+
+		undo(state) {
+			return state
+		}
+	}
+
+	const queue = new CommandQueue()
+
+	queue.enqueue(new MyCommand())
+	queue.enqueue(new MyCommand())
+	queue.enqueue(new MyCommand())
+
+	const results = []
+
+	queue.on('after undo', (command, undoResult) => {
+		results.push(undoResult)
+	})
+
+	await queue.execute()
+	await queue.undo()
+
+	// first command, which is the last undo was invoked with an "undefined" state
+	t.deepEqual(results, [2, 1, undefined])
 })
 
 test('undo SOME of the executed commands in the reverse order they were executed', async t => {
