@@ -231,6 +231,48 @@ test('calling clear() will NOT remove commands from the history queue', async t 
 	t.is(queue.historyLength, 3)
 })
 
+test('injecting another command into the queue by returning it from an existing command\'s execute() method', async t => {
+	const exec = []
+	const undo = []
+	class MyCommand extends Command {
+		execute() {
+			exec.push(0)
+
+			return new (class extends MyCommand {
+				execute() {
+					exec.push(1)
+				}
+
+				undo() {
+					undo.push(1)
+				}
+			})
+		}
+
+		undo() {
+			undo.push(0)
+		}
+	}	
+
+	class MyCommand1 extends Command {
+		execute() {
+			exec.push(2)
+		}
+
+		undo() {
+			undo.push(2)
+		}
+	}
+
+	const queue = new CommandQueue()
+	queue.enqueue(new MyCommand())
+	queue.enqueue(new MyCommand1())
+	await queue.execute()
+	t.deepEqual(exec, [0, 1, 2])
+	await queue.undo()
+	t.deepEqual(undo, [2, 1, 0])
+})
+
 test.beforeEach(t => {
 	t.context.queue = new CommandQueue()
 	t.context.executionOrder = []

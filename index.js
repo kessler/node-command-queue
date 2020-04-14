@@ -71,6 +71,13 @@ class CommandQueue extends EventEmitter {
 		const result = await nextCommand.execute(lastResult)
 		this._history.push({ command: nextCommand, lastResult })
 		this.emit('after execute', nextCommand, result, this)
+		
+		// a command that wants to inject a subsequent command into the queue
+		if (result instanceof Command) {
+			this._queue.push(result)
+			// intentionally not decreasing count here, since the queue length has changed!!!
+			return this.execute(count, result)
+		}
 
 		return this.execute(--count, result)
 	}
