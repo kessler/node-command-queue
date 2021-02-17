@@ -56,30 +56,34 @@ class CommandQueue extends EventEmitter {
 		this._queue = []
 	}
 
-	async execute(count = this._queue.length, lastResult) {
+	async execute(state, count = this._queue.length) {
 		if (count === 0) {
-			return
+			return state
 		}
 
 		if (this._queue.length === 0) {
-			return
+			return state
 		}
 
 		const nextCommand = this._queue.pop()
-		this.emit('before execute', nextCommand, lastResult, this)
+		this.emit('before execute', nextCommand, state, this)
 
-		const result = await nextCommand.execute(lastResult, this)
-		this._history.push({ command: nextCommand, lastResult })
+		const result = await nextCommand.execute(state, this)
+		this._history.push({ command: nextCommand, lastResult: state })
 		this.emit('after execute', nextCommand, result, this)
 		
 		// a command that wants to inject a subsequent command into the queue
+		// intentionally increasing count here, since the queue length has increased
 		if (result instanceof Command) {
 			this._queue.push(result)
-			// intentionally not decreasing count here, since the queue length has changed!!!
-			return this.execute(count, result)
+			count++
 		}
 
-		return this.execute(--count, result)
+		return await this.execute(result, --count)
+	}
+
+	executeStep(count = 1, state) {
+		return this.execute(state, count)
 	}
 
 	async undo(count = this._history.length) {
@@ -96,6 +100,10 @@ class CommandQueue extends EventEmitter {
 		const undoResult = await command.undo(lastResult, this)
 		this.emit('after undo', command, undoResult, this)
 		return this.undo(--count)
+	}
+
+	undoStep(count = 1) {
+		return this.undo(count)
 	}
 
 	get queueLength() {

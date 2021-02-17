@@ -17,12 +17,11 @@
     "scripts": {
         "test": "npx ava"
     },
-    "dependencies": {},
-    "devDependencies": {
-        "ava": "^3.6.0"
-    },
     "keywords": [
         "command",
         "queue"
-    ]
+    ],
+    "devDependencies": {
+        "ava": "^3.15.0"
+    }
 }

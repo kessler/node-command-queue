@@ -50,9 +50,9 @@ queue.on('after execute', (command, result, queue) => {})
 queue.on('before undo', (command, lastResult, queue) => {})
 queue.on('after undo', (command, undoResult, queue) => {})
 
-await queue.execute(2) // execute 2
-await queue.execute() // execute the rest
-await queue.undo(1) // undo 1
+const state = await queue.executeStep(2, { foo: 'bar' }) // execute 2 with initial state
+await queue.execute(state) // execute the rest
+await queue.undoStep() // undo 1
 await queue.undo() // undo the rest
 ```
 

@@ -37,13 +37,13 @@ test('the queue will pass a command\'s result to the next one as a parameter', a
 
 test('executes SOME the commands pushed to the queue in a FIFO order', async t => {
 	const { queue, executionOrder } = t.context
-	await queue.execute(2)
+	await queue.executeStep(2)
 	t.deepEqual(executionOrder, [0, 1])
 })
 
 test('execute count greater than the queue length will work', async t => {
 	const { queue, executionOrder } = t.context
-	await queue.execute(232)
+	await queue.executeStep(232)
 	t.deepEqual(executionOrder, [0, 1, 2])
 })
 
@@ -238,7 +238,7 @@ test('injecting another command into the queue by returning it from an existing 
 		execute() {
 			exec.push(0)
 
-			return new (class extends MyCommand {
+			return new(class extends MyCommand {
 				execute() {
 					exec.push(1)
 				}
@@ -252,7 +252,7 @@ test('injecting another command into the queue by returning it from an existing 
 		undo() {
 			undo.push(0)
 		}
-	}	
+	}
 
 	class MyCommand1 extends Command {
 		execute() {
@@ -271,6 +271,66 @@ test('injecting another command into the queue by returning it from an existing 
 	t.deepEqual(exec, [0, 1, 2])
 	await queue.undo()
 	t.deepEqual(undo, [2, 1, 0])
+})
+
+test('queue.execute will return the result from the last command', async t => {
+	class MyCommand extends Command {
+		execute(state = 0) {
+			return state + 1
+		}
+	}
+
+	const queue = new CommandQueue()
+	queue.enqueue(new MyCommand())
+	queue.enqueue(new MyCommand())
+	queue.enqueue(new MyCommand())
+	queue.enqueue(new MyCommand())
+	queue.enqueue(new MyCommand())
+
+	const result = await queue.execute()
+	t.is(result, 5)
+})
+
+test('we can provide initial state to queue.execute', async t => {
+	class MyCommand extends Command {
+		execute(state = 0) {
+			return state + 1
+		}
+	}
+
+	const queue = new CommandQueue()
+	queue.enqueue(new MyCommand())
+	queue.enqueue(new MyCommand())
+	queue.enqueue(new MyCommand())
+	queue.enqueue(new MyCommand())
+	queue.enqueue(new MyCommand())
+
+	const result = await queue.execute(10)
+	t.is(result, 15)
+})
+
+test('stepped execution returns the result from the last command executed', async t => {
+	class MyCommand extends Command {
+		execute(state = 0) {
+			return state + 1
+		}
+	}
+
+	const queue = new CommandQueue()
+	queue.enqueue(new MyCommand())
+	queue.enqueue(new MyCommand())
+	queue.enqueue(new MyCommand())
+	queue.enqueue(new MyCommand())
+	queue.enqueue(new MyCommand())
+
+	let result = await queue.executeStep(2)
+	t.is(result, 2)
+
+	result = await queue.executeStep(1, result)
+	t.is(result, 3)
+
+	result = await queue.execute(result)
+	t.is(result, 5)
 })
 
 test.beforeEach(t => {
