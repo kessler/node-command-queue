@@ -68,7 +68,7 @@ class CommandQueue extends EventEmitter {
 		const nextCommand = this._queue.pop()
 		this.emit('before execute', nextCommand, lastResult, this)
 
-		const result = await nextCommand.execute(lastResult)
+		const result = await nextCommand.execute(lastResult, this)
 		this._history.push({ command: nextCommand, lastResult })
 		this.emit('after execute', nextCommand, result, this)
 		
@@ -93,7 +93,7 @@ class CommandQueue extends EventEmitter {
 
 		const { command, lastResult } = this._history.pop()
 		this.emit('before undo', command, lastResult, this)
-		const undoResult = await command.undo(lastResult)
+		const undoResult = await command.undo(lastResult, this)
 		this.emit('after undo', command, undoResult, this)
 		return this.undo(--count)
 	}

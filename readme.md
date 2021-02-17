@@ -22,7 +22,7 @@ class MyCommand extends Command {
 }
 
 class MultiCommand extends Command {
-    async execute(state) {
+    async execute(state, queue /*executing queue reference*/) {
         await doSomething()
         // returned command will execute after this command
         // same as enqueuing two commands but happens at 
