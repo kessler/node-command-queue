@@ -9,7 +9,7 @@
 `npm install --save @kessler/command-queue`
 
 ```js
-const { CommandQueue, Command } = require('@kessler/command-queue')
+const { CommandQueue, Command, haltCommand } = require('@kessler/command-queue')
 
 class MyCommand extends Command {
     async execute(state) {
@@ -23,7 +23,10 @@ class MyCommand extends Command {
 
 class MultiCommand extends Command {
     async execute(state, queue /*executing queue reference*/) {
-        await doSomething()
+        const resultOfSomething = await doSomething()
+        if (!resultOfSomething) {
+            return haltCommand
+        }
         // returned command will execute after this command
         // same as enqueuing two commands but happens at 
         // "runtime". Does not apply to undo

@@ -72,6 +72,11 @@ class CommandQueue extends EventEmitter {
 		this._history.push({ command: nextCommand, lastResult: state })
 		this.emit('after execute', nextCommand, result, this)
 		
+		if (result instanceof HaltCommand) {
+			this.emit('halted')
+			return result
+		}
+
 		// a command that wants to inject a subsequent command into the queue
 		// intentionally increasing count here, since the queue length has increased
 		if (result instanceof Command) {
@@ -115,4 +120,18 @@ class CommandQueue extends EventEmitter {
 	}
 }
 
-module.exports = { Command, CommandQueue }
+class HaltCommand extends Command {
+	constructor() {
+		super()
+	}
+
+	execute() {
+		throw new Error('halt command is special and cannot be executed')
+	}
+
+	undo() {
+		throw new Error('halt command is special and cannot be undone')	
+	}
+}
+
+module.exports = { Command, CommandQueue, haltCommand: new HaltCommand() }
