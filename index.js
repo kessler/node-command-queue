@@ -68,7 +68,7 @@ class CommandQueue extends EventEmitter {
 		const nextCommand = this._queue.pop()
 		this.emit('before execute', nextCommand, state, this)
 
-		const result = await nextCommand.execute(state, this)
+		let result = await nextCommand.execute(state, this)
 		this._history.push({ command: nextCommand, lastResult: state })
 		this.emit('after execute', nextCommand, result, this)
 		
@@ -81,6 +81,7 @@ class CommandQueue extends EventEmitter {
 		// intentionally increasing count here, since the queue length has increased
 		if (result instanceof Command) {
 			this._queue.push(result)
+			result = state
 			count++
 		}
 
@@ -125,11 +126,11 @@ class HaltCommand extends Command {
 		super()
 	}
 
-	execute() {
+	async execute() {
 		throw new Error('halt command is special and cannot be executed')
 	}
 
-	undo() {
+	async undo() {
 		throw new Error('halt command is special and cannot be undone')	
 	}
 }

@@ -47,7 +47,7 @@ test('execute count greater than the queue length will work', async t => {
 	t.deepEqual(executionOrder, [0, 1, 2])
 })
 
-test('calling execute when no commands where queued has no effect', async t => {
+test('calling execute when no commands are queued has no effect', async t => {
 	const queue = new CommandQueue()
 	queue.on('after execute', () => t.fail('should not happen'))
 	await queue.execute()
@@ -239,7 +239,9 @@ test('injecting another command into the queue by returning it from an existing 
 			exec.push(0)
 
 			return new(class extends MyCommand {
-				execute() {
+				execute(state) {
+					// state should be the same as command that injected
+					t.is(state, 99)
 					exec.push(1)
 				}
 
@@ -267,7 +269,7 @@ test('injecting another command into the queue by returning it from an existing 
 	const queue = new CommandQueue()
 	queue.enqueue(new MyCommand())
 	queue.enqueue(new MyCommand1())
-	await queue.execute()
+	await queue.execute(99)
 	t.deepEqual(exec, [0, 1, 2])
 	await queue.undo()
 	t.deepEqual(undo, [2, 1, 0])
