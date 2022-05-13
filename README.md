@@ -2,7 +2,7 @@
 
 **a command queue**
 
-[![npm status](http://img.shields.io/npm/v/command-queue.svg?style=flat-square)](https://www.npmjs.org/package/command-queue) 
+[![npm status]
 
 ## example
 
