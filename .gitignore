@@ -15,5 +15,3 @@ npm-debug.log
 node_modules
 
 .yo-rc.json
-
-package-lock.json
