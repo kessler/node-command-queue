@@ -2,8 +2,6 @@
 
 **a command queue**
 
-[![npm status]
-
 ## example
 
 `npm install --save @kessler/command-queue`
