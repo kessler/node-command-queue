@@ -7,132 +7,132 @@ const { EventEmitter } = require('events')
  */
 class Command {
 
-	constructor() {
-		if (new.target === Command) {
-			throw new TypeError('Cannot construct Abstract instances directly')
-		}
-	}
+  constructor() {
+    if (new.target === Command) {
+      throw new TypeError('Cannot construct Abstract instances directly')
+    }
+  }
 
-	/**
-	 *    execute's the command, if the previous command returned something
-	 *    it will be provided via state
-	 *    
-	 *    @param  {Variant} state 
-	 *    @return {Variant}
-	 */
-	execute(state) {
-		throw new Error('must implement')
-	}
+  /**
+   *    execute's the command, if the previous command returned something
+   *    it will be provided via state
+   *    
+   *    @param  {Variant} state 
+   *    @return {Variant}
+   */
+  execute(state) {
+    throw new Error('must implement')
+  }
 
-	/**
-	 *    Undo the command, the state is the state that was fed to execute()
-	 *    @param  {Variant} state
-	 *    @return {Variant}
-	 */
-	undo(state) {
-		throw new Error('must implement')
-	}
+  /**
+   *    Undo the command, the state is the state that was fed to execute()
+   *    @param  {Variant} state
+   *    @return {Variant}
+   */
+  undo(state) {
+    throw new Error('must implement')
+  }
 }
 
 class CommandQueue extends EventEmitter {
-	constructor() {
-		super()
+  constructor() {
+    super()
 
-		this._queue = []
-		this._history = []
-	}
+    this._queue = []
+    this._history = []
+  }
 
-	enqueue(command) {
-		if (!(command instanceof Command)) {
-			throw new Error('can only push instances of Command')
-		}
+  enqueue(command) {
+    if (!(command instanceof Command)) {
+      throw new Error('can only push instances of Command')
+    }
 
-		this._queue.unshift(command)
+    this._queue.unshift(command)
 
-		this.emit('enqueue', command, this)
-	}
+    this.emit('enqueue', command, this)
+  }
 
-	clear() {
-		this._queue = []
-	}
+  clear() {
+    this._queue = []
+  }
 
-	async execute(state, count = this._queue.length) {
-		if (count === 0) {
-			return state
-		}
+  async execute(state, count = this._queue.length) {
+    if (count === 0) {
+      return state
+    }
 
-		if (this._queue.length === 0) {
-			return state
-		}
+    if (this._queue.length === 0) {
+      return state
+    }
 
-		const nextCommand = this._queue.pop()
-		this.emit('before execute', nextCommand, state, this)
+    const nextCommand = this._queue.pop()
+    this.emit('before execute', nextCommand, state, this)
 
-		let result = await nextCommand.execute(state, this)
-		this._history.push({ command: nextCommand, lastResult: state })
-		this.emit('after execute', nextCommand, result, this)
-		
-		if (result instanceof HaltCommand) {
-			this.emit('halted')
-			return result
-		}
+    let result = await nextCommand.execute(state, this)
+    this._history.push({ command: nextCommand, lastResult: state })
+    this.emit('after execute', nextCommand, result, this)
 
-		// a command that wants to inject a subsequent command into the queue
-		// intentionally increasing count here, since the queue length has increased
-		if (result instanceof Command) {
-			this._queue.push(result)
-			result = state
-			count++
-		}
+    if (result instanceof HaltCommand) {
+      this.emit('halted')
+      return result
+    }
 
-		return await this.execute(result, --count)
-	}
+    // a command that wants to inject a subsequent command into the queue
+    // intentionally increasing count here, since the queue length has increased
+    if (result instanceof Command) {
+      this._queue.push(result)
+      result = state
+      count++
+    }
 
-	executeStep(count = 1, state) {
-		return this.execute(state, count)
-	}
+    return await this.execute(result, --count)
+  }
 
-	async undo(count = this._history.length) {
-		if (count === 0) {
-			return
-		}
+  executeStep(count = 1, state) {
+    return this.execute(state, count)
+  }
 
-		if (this._history.length === 0) {
-			return
-		}
+  async undo(count = this._history.length) {
+    if (count === 0) {
+      return
+    }
 
-		const { command, lastResult } = this._history.pop()
-		this.emit('before undo', command, lastResult, this)
-		const undoResult = await command.undo(lastResult, this)
-		this.emit('after undo', command, undoResult, this)
-		return this.undo(--count)
-	}
+    if (this._history.length === 0) {
+      return
+    }
 
-	undoStep(count = 1) {
-		return this.undo(count)
-	}
+    const { command, lastResult } = this._history.pop()
+    this.emit('before undo', command, lastResult, this)
+    const undoResult = await command.undo(lastResult, this)
+    this.emit('after undo', command, undoResult, this)
+    return this.undo(--count)
+  }
 
-	get queueLength() {
-		return this._queue.length
-	}
+  undoStep(count = 1) {
+    return this.undo(count)
+  }
 
-	get historyLength() {
-		return this._history.length
-	}
+  get queueLength() {
+    return this._queue.length
+  }
+
+  get historyLength() {
+    return this._history.length
+  }
 }
 
 class HaltCommand extends Command {
-	constructor() {
-		super()
-	}
+  constructor() {
+    super()
+  }
 
-	async execute() {
-		throw new Error('halt command is special and cannot be executed')
-	}
+  async execute() {
+    throw new Error('halt command is special and cannot be executed')
+  }
 
-	async undo() {
-		throw new Error('halt command is special and cannot be undone')	
-	}
+  async undo() {
+    throw new Error('halt command is special and cannot be undone')
+  }
 }
 
 module.exports = { Command, CommandQueue, haltCommand: new HaltCommand() }
